@@ -1,5 +1,5 @@
 import pygame
-from setton.utils import get_all_files
+from setton import get_all_files
 from time import sleep
 
 
