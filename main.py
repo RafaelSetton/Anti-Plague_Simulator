@@ -1,5 +1,5 @@
 import pygame
-from setton import get_all_files
+from os import listdir, path
 from time import sleep
 
 
@@ -13,12 +13,27 @@ class Game:
 
         self.screen = pygame.display.set_mode((1080, 720))
         self.imgs = dict()
-        for file in get_all_files("./assets", start_string=''):
+        for file in self.get_all_files("./assets", start_string=''):
             self.imgs[file.split('.')[0].replace('/', '.')] = pygame.image.load(file)
 
         self.running = True
         self.keys_pressed = []
         self.font = pygame.font.Font('freesansbold.ttf', 32)
+
+    def get_all_files(self, directory, extension='*', start_string='./'):
+        if directory.endswith('/') or directory.endswith('\\'):
+            directory = directory[:-1]
+
+        for thing in listdir(directory):
+            condition = thing.endswith(f'.{extension}')
+            if extension == '*':
+                condition = thing.count('.') > 0
+
+            if condition:
+                yield start_string + thing
+            elif '.' not in thing:
+                for nxt in self.get_all_files(path.join(directory, thing), extension, f'{start_string + thing}/'):
+                    yield nxt
 
     # Montagem dos Niveis
     def __days(self):
@@ -110,6 +125,7 @@ class Game:
         self.saudaveis = 999500
         self.mortes = 0
         self.novas_mortes = 0
+        self.imunes = 0
 
         self.money = 5000
         self.leitos = 1000
@@ -237,9 +253,10 @@ class Game:
             self.novas_mortes = pop*0.1*self.taxa_de_morte
             self.mortes += self.novas_mortes
             self.infectados -= pop - self.novas_mortes
+            self.imunes += (pop - self.novas_mortes) / 2
         self.infectados += self.novos_infectados[-1] - self.novas_mortes
         self.graves = self.infectados * 0.05
-        self.saudaveis = 1000000 - self.infectados - self.mortes
+        self.saudaveis = 1000000 - self.infectados - self.mortes - self.imunes
         self.circulando -= self.novas_mortes
         self.money += round(self.circulando*0.0015 - 800)
         self.dias -= 1
