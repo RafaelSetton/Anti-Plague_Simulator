@@ -1,4 +1,6 @@
 from os import listdir, path
+from random import choice
+import cv2
 import pygame
 pygame.init()
 
@@ -72,7 +74,9 @@ class Game:
         self.novos_infectados = list()
         self.novos_mortos = 0
 
-        self.main_img = self.imgs[self.pais]
+        self.main_img = self.imgs[f"{self.pais}/Main"]
+        self.fundo_img = self.imgs[f"{self.pais}/Fundo"]
+        self.__transparente()
 
         self.mascara_price_img = Fonts.FONT40.render(f'R${self.mascara_price}', True, (0, 0, 0))
         self.leitos_price_img = Fonts.FONT40.render(f'R${self.leitos_price}', True, (0, 0, 0))
@@ -86,8 +90,33 @@ class Game:
 
         self.loop()
 
+    def __transparente(self):
+        img = cv2.imread(f"Data/{self.pais}/Fundo.png")
+        height = len(img)
+        width = len(img[0])
+        self.transparente = []
+        for x in range(width):
+            for y in range(height):
+                if img[y][x][0] == img[y][x][1] == img[y][x][2] == 0:
+                    new_x = (self.dp_width - self.info_size) * x / width
+                    new_y = self.dp_height * y / height
+                    self.transparente.append((int(new_x), int(new_y)))
+
+    def __pontos(self, qtd, img):
+        for _ in range(int(qtd * len(self.transparente) / 100000000)):
+            x, y = choice(self.transparente)
+            self.tela.blit(pygame.transform.scale(img, (8, 8)), (x + self.info_size, y))
+
     def __blit_info(self):
-        self.tela.blit(pygame.transform.scale(self.main_img, (self.dp_width - self.info_size, self.dp_height)), (self.info_size, -70))
+        self.tela.blit(pygame.transform.scale(self.main_img, (self.dp_width - self.info_size, self.dp_height)),
+                       (self.info_size, 0))
+        self.__pontos(self.saudaveis[-1], self.imgs["Green"])
+        self.__pontos(self.infectados[-1], self.imgs["Red"])
+        #self.__pontos(self.mortos[-1], self.imgs["Black"])
+        self.__pontos(self.imunes[-1], self.imgs["Blue"])
+        self.tela.blit(pygame.transform.scale(self.fundo_img, (self.dp_width - self.info_size, self.dp_height)),
+                       (self.info_size, 0))
+
         self.tela.blit(self.pais_img, (self.info_size + 100, 50))
 
         pygame.draw.rect(self.tela, Colors.GRAY100, ((0, 0), (self.info_size, self.dp_height)))
@@ -101,7 +130,6 @@ class Game:
             pygame.draw.rect(self.tela, Colors.GRAY50, (pt1, (int(self.info_size*0.8), self.dp_height // 7)))
             pygame.draw.rect(self.tela, Colors.BLACK, (pt1, (int(self.info_size*0.8), self.dp_height // 40)))
             self.tela.blit(titulo_img[i], (int(self.info_size*0.11), ((8 * self.dp_height * i) + self.dp_height) // 49))
-
 
         saudaveis_img = Fonts.FONT95.render('{:.1f}'.format(self.saudaveis[-1] / 10000) + '%', True, Colors.WHITE)
         self.__blit_grafico(self.saudaveis, 0, Colors.GREEN, saudaveis_img, True)
@@ -119,6 +147,11 @@ class Game:
         self.__blit_grafico(self.taxa_de_morte, 5 * self.graph_size, Colors.BLACK, taxa_de_morte_img)
 
         self.pessoas_qtd_img = Fonts.FONT30.render(f'Qtd.:{int(self.pessoas_qtd)}', True, Colors.WHITE)
+
+        self.__grafico_geral(self.saudaveis, Colors.GREEN)
+        self.__grafico_geral(self.infectados, Colors.RED)
+        self.__grafico_geral(self.mortos, Colors.PURPLE)
+        self.__grafico_geral(self.imunes, Colors.BLUE)
 
     def __blit_botoes(self):
         options = [[self.mascara_img, self.mascara_price_img, self.mascara_qtd_img, 550],
@@ -144,8 +177,17 @@ class Game:
         pygame.draw.rect(self.tela, Colors.BLACK, ((self.dp_width - size - margin, margin + size), (size, size)))
         '''
 
-    def __blit_grafico(self, values, altura, cor, numero, inteiro=False):
+    def __grafico_geral(self, values, cor):
+        coords = list()
+        height = (4 * self.dp_height / 35) / 1000000
+        width = self.info_size * 0.8 / (len(values) - 1)
 
+        for index, b in enumerate(values):
+            coords.append((int(self.info_size * 0.1 + width * index), int(5 * self.graph_size - height * int(b))))
+
+        pygame.draw.lines(self.tela, cor, False, coords, 3)
+
+    def __blit_grafico(self, values, altura, cor, numero, inteiro=False):
         coords = [(int(self.info_size*0.9), altura + self.graph_size), (int(self.info_size*0.1), altura + self.graph_size)]
         height = (4 * self.dp_height / 35) / max(values) if max(values) else (4 * self.dp_height / 35)
         width = self.info_size*0.8 / (len(values) - 1)
@@ -205,10 +247,10 @@ class Game:
         frames = 0
         self.running = True
         while self.running:
-            if frames % 2 == 0:
+            if frames % 100 == 0:
                 self.__day()
+                self.__all_blits()
             self.__events_handler()
-            self.__all_blits()
 
             pygame.display.update()
             frames += 1
